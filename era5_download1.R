@@ -20,6 +20,11 @@
 # https://cds.climate.copernicus.eu/cdsapp#!/dataset/reanalysis-era5-land?tab=form
 # https://cds.climate.copernicus.eu/cdsapp#!/dataset/10.24381/cds.e2161bac?tab=overview
 
+library(lubridate)
+library(ncdf4) 
+library(raster)
+library(rgdal) 
+library(ggplot2) 
 library(dplyr)
 library(stringr)
 library(foreach)
@@ -37,10 +42,12 @@ dataset_info <- wf_product_info(dataset = dataset_short_name, user = cds[1], ser
 names(dataset_info)
 abstract <- dataset_info$rich_abstract
 variables <- c("2m_temperature")
-years <- sprintf("%04d", 2016)
-months <- sprintf("%02d", 8)
-days <- sprintf("%02d", 16)
+when <- ymd_hm("2022-02-12 18:00", tz = "Pacific/Auckland") %>% with_tz("UTC")
+years <- sprintf("%04d", year(when))
+months <- sprintf("%02d", month(when))
+days <- sprintf("%02d", day(when))
 times <- c("00:00", "01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00")
+times <- sprintf("%02d:00", hour(when))
 fname <- "download.nc"
 
 request <- list(
@@ -66,11 +73,6 @@ file <- wf_request(user = cds[1], # "Insert_your_CDS_UID_here",
 
 # https://rpubs.com/boyerag/297592
 
-library(ncdf4) # package for netcdf manipulation
-library(raster) # package for raster manipulation
-library(rgdal) # package for geospatial analysis
-library(ggplot2) # package for plotting
-
 # get view meta data ####
 nc_data <- nc_open(paste0("downloaded/", fname))
 {
@@ -85,3 +87,15 @@ length(lat)
 t <- ncvar_get(nc_data, "time")
 length(t)
 t2m <- ncvar_get(nc_data, "t2m") # 3d matrix lon * lat * t
+fillvalue <- ncatt_get(nc_data, "t2m", "_FillValue")
+nc_close(nc_data)
+t2m[t2m == fillvalue$value] <- NA
+kelvin_to_celsius <- 273.16
+slice <- t2m[,] - kelvin_to_celsius
+max(slice, na.rm = TRUE)
+min(slice, na.rm = TRUE)
+crs_wgs <- 4326
+r <- raster(t(slice), xmn=min(lon), xmx=max(lon), ymn=min(lat), ymx=max(lat), 
+            crs=crs_wgs)
+# r <- flip(r, direction='y')
+plot(r)

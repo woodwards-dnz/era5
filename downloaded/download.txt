@@ -2,8 +2,8 @@ File downloaded/download.nc (NC_FORMAT_64BIT):
 
      1 variables (excluding dimension variables):
         short t2m[longitude,latitude,time]   
-            scale_factor: 0.000393684348438954
-            add_offset: 276.137498470326
+            scale_factor: 0.000305085438824714
+            add_offset: 290.744964644781
             _FillValue: -32767
             missing_value: -32767
             units: K
@@ -16,11 +16,11 @@ File downloaded/download.nc (NC_FORMAT_64BIT):
         latitude  Size:140 
             units: degrees_north
             long_name: latitude
-        time  Size:24 
+        time  Size:1 
             units: hours since 1900-01-01 00:00:00.0
             long_name: time
             calendar: gregorian
 
     2 global attributes:
         Conventions: CF-1.6
-        history: 2023-11-13 21:28:16 GMT by grib_to_netcdf-2.25.1: /opt/ecmwf/mars-client/bin/grib_to_netcdf.bin -S param -o /cache/data7/adaptor.mars.internal-1699910895.8884857-1317-18-2eec6cce-6fcb-48e2-9eef-85d0cfe04c00.nc /cache/tmp/2eec6cce-6fcb-48e2-9eef-85d0cfe04c00-adaptor.mars.internal-1699910877.6019335-1317-26-tmp.grib
+        history: 2023-11-14 00:54:33 GMT by grib_to_netcdf-2.25.1: /opt/ecmwf/mars-client/bin/grib_to_netcdf.bin -S param -o /cache/data1/adaptor.mars.internal-1699923273.0350742-26217-15-7039ac76-998c-4a57-ba35-23da2dcd497f.nc /cache/tmp/7039ac76-998c-4a57-ba35-23da2dcd497f-adaptor.mars.internal-1699923258.3893192-26217-24-tmp.grib
