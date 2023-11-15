@@ -1,0 +1,26 @@
+File downloaded/2m_dewpoint_temperature_1.nc (NC_FORMAT_64BIT):
+
+     1 variables (excluding dimension variables):
+        short d2m[longitude,latitude,time]   
+            scale_factor: 0.000656753341425432
+            add_offset: 276.308776542763
+            _FillValue: -32767
+            missing_value: -32767
+            units: K
+            long_name: 2 metre dewpoint temperature
+
+     3 dimensions:
+        longitude  Size:11 
+            units: degrees_east
+            long_name: longitude
+        latitude  Size:12 
+            units: degrees_north
+            long_name: latitude
+        time  Size:8760 
+            units: hours since 1900-01-01 00:00:00.0
+            long_name: time
+            calendar: gregorian
+
+    2 global attributes:
+        Conventions: CF-1.6
+        history: 2023-11-14 20:39:18 GMT by grib_to_netcdf-2.25.1: /opt/ecmwf/mars-client/bin/grib_to_netcdf.bin -S param -o /cache/data6/adaptor.mars.internal-1699994330.7613292-29594-4-a7f7f8c8-4685-49f9-b672-f31d3851b4cf.nc /cache/tmp/a7f7f8c8-4685-49f9-b672-f31d3851b4cf-adaptor.mars.internal-1699993070.6982064-29594-6-tmp.grib

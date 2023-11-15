@@ -1,0 +1,26 @@
+File downloaded/2m_temperature_N_12.nc (NC_FORMAT_64BIT):
+
+     1 variables (excluding dimension variables):
+        short t2m[longitude,latitude,time]   
+            scale_factor: 0.000606158556328491
+            add_offset: 283.617250631659
+            _FillValue: -32767
+            missing_value: -32767
+            units: K
+            long_name: 2 metre temperature
+
+     3 dimensions:
+        longitude  Size:11 
+            units: degrees_east
+            long_name: longitude
+        latitude  Size:15 
+            units: degrees_north
+            long_name: latitude
+        time  Size:8760 
+            units: hours since 1900-01-01 00:00:00.0
+            long_name: time
+            calendar: gregorian
+
+    2 global attributes:
+        Conventions: CF-1.6
+        history: 2023-11-15 19:21:27 GMT by grib_to_netcdf-2.25.1: /opt/ecmwf/mars-client/bin/grib_to_netcdf.bin -S param -o /cache/data9/adaptor.mars.internal-1700076056.9985359-15681-2-cd65f989-32b1-42cc-960d-8c7df950f745.nc /cache/tmp/cd65f989-32b1-42cc-960d-8c7df950f745-adaptor.mars.internal-1700074790.1991765-15681-2-tmp.grib

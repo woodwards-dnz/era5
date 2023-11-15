@@ -1,0 +1,26 @@
+File downloaded/10m_v_component_of_wind_N.nc (NC_FORMAT_64BIT):
+
+     1 variables (excluding dimension variables):
+        short v10[longitude,latitude,time]   
+            scale_factor: 0.00060426177286977
+            add_offset: 0.984803383639932
+            _FillValue: -32767
+            missing_value: -32767
+            units: m s**-1
+            long_name: 10 metre V wind component
+
+     3 dimensions:
+        longitude  Size:52 
+            units: degrees_east
+            long_name: longitude
+        latitude  Size:68 
+            units: degrees_north
+            long_name: latitude
+        time  Size:8760 
+            units: hours since 1900-01-01 00:00:00.0
+            long_name: time
+            calendar: gregorian
+
+    2 global attributes:
+        Conventions: CF-1.6
+        history: 2023-11-14 23:16:45 GMT by grib_to_netcdf-2.25.1: /opt/ecmwf/mars-client/bin/grib_to_netcdf.bin -S param -o /cache/data5/adaptor.mars.internal-1700003774.9567451-14894-7-061fd5ad-8ca1-475d-857a-1ac1494d086f.nc /cache/tmp/061fd5ad-8ca1-475d-857a-1ac1494d086f-adaptor.mars.internal-1700002515.962396-14894-12-tmp.grib
