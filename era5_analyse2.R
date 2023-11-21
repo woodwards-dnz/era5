@@ -158,28 +158,41 @@ weathlocal <- data %>%
     DATE_TIME = dt,
     DATE = as.Date(dt),
     HOUR = hour(dt),
+    MONTH = month(dt),
     AIR_C = t2m,
     HUM_PC = rh2m,
     SOLAR_MJH = ssrd,
-    WIND_MPS = w2m
+    WIND_MPS = w2m,
+    THI = (1.8 * AIR_C + 32) - 0.55 * (1 - HUM_PC / 100) * (1.8 * AIR_C - 26),
+    GHLI = 61.78 + 4.21 * (AIR_C - 22.48) - 1.70 * (WIND_MPS - 7.05) + 5.89 * (SOLAR_MJH - 2.41),
+    GHLI2 = 59.67 + 8.87 * (AIR_C - 23.5) + 2.78 * (HUM_PC - 58.34) - 3.15 * (WIND_MPS - 7.3) + 7.65 * (SOLAR_MJH - 2.14)
   ) %>% 
-  arrange(STATION_ID, DATE_TIME)
+  # dplyr::filter(HOUR >=12 & HOUR <= 15) %>% 
+  arrange(STATION_ID, DATE_TIME) 
 n_distinct(weathlocal$STATION_ID)
-temp <- weathlocal %>% 
+weathlocal2 <- weathlocal %>% 
   group_by(STATION_ID, DATE) %>% 
-  dplyr::filter(n() == 24) %>% 
+  # dplyr::filter(n() == 24) %>% 
   summarise(
-    HOUR_MIN = safeget(HOUR, AIR_C == safemin(AIR_C)),
-    AIR_MIN = safeget(AIR_C, HOUR == HOUR_MIN),
-    HOUR_MAX = safeget(HOUR, AIR_C == safemax(AIR_C)),
-    AIR_MAX = safeget(AIR_C, HOUR == HOUR_MAX),
-    HUM_MAX = safeget(HUM_PC, HOUR == HOUR_MAX),
-    SOL_MAX = safeget(SOLAR_MJH, HOUR == HOUR_MAX),
-    WIND_MAX = safeget(WIND_MPS, HOUR == HOUR_MAX),
+    # daily max
+    AIR_MIN = safemin(AIR_C),
+    AIR_MAX = safemax(AIR_C),
+    AIR_HOUR = safeget(HOUR, AIR_C == safemax(AIR_C)),
+    THI_MAX = safemax(THI),
+    THI_HOUR = safeget(HOUR, THI == safemax(THI)), 
+    GHLI_MAX = safemax(GHLI),
+    GHLI_HOUR = safeget(HOUR, GHLI == safemax(GHLI)),
+    GHLI2_MAX = safemax(GHLI2),
+    GHLI2_HOUR = safeget(HOUR, GHLI2 == safemax(GHLI2)),
+    # daily mean
     AIR_MEAN = safemean(AIR_C),
     HUM_MEAN = safemean(HUM_PC),
     SOL_MEAN = safemean(SOLAR_MJH),
-    WIND_MEAN = safemean(WIND_MPS)
+    WIND_MEAN = safemean(WIND_MPS),
+    # vars to model 
+    HUM_MAX = safeget(HUM_PC, HOUR == AIR_HOUR),
+    SOL_MAX = safeget(SOLAR_MJH, HOUR == AIR_HOUR),
+    WIND_MAX = safeget(WIND_MPS, HOUR == AIR_HOUR),
   ) %>% 
   ungroup() %>% 
   mutate(
@@ -187,70 +200,96 @@ temp <- weathlocal %>%
     SOL_MAX = ifelse(SOL_MAX > 0, SOL_MAX, NA), # MJ/m2/h
   ) %>% 
   drop_na(SOL_MAX)
-# hist(temp$SOL_MAX) # plausible
-png("plots/weathmeanmaxcorr.png", width = 297, height = 210, units = "mm", res = 150)
-g <- ggpairs(temp, columns = which(str_detect(names(temp), "MAX|MEAN")))
-print(g)
-dev.off()
+# hist(weathlocal2$SOL_MAX) # plausible
 
+# plot corr ####
+if (FALSE){
+  png("plots/weathmeanmaxcorr.png", width = 297, height = 210, units = "mm", res = 150)
+  g <- ggpairs(weathlocal2, columns = which(str_detect(names(weathlocal2), "MAX|MEAN")))
+  print(g)
+  dev.off()
+}
+
+# phase shift ####
+set.seed(123)
+weathlocal2 %>% 
+  dplyr::select(matches("_HOUR")) %>% 
+  pivot_longer(-AIR_HOUR) %>% 
+  mutate(
+    name = str_extract(name, "^[^_]+"),
+    name = factor(name, levels = c("THI", "GHLI", "GHLI2"))
+    ) %>% 
+  ggplot() +
+  theme_bw() +
+  labs(x = "Hour of Maximimum Air Temperature", y = "Hour of Maximum Index Value", colour = "Series") +
+  geom_jitter(aes(x = AIR_HOUR, y = value, colour = "Heat Index"), alpha = 0.2) +
+  geom_smooth(aes(x = AIR_HOUR, y = value, colour = "Regression"), method = "lm", se = FALSE) +
+  geom_line(aes(x = AIR_HOUR, y = AIR_HOUR, colour = "1:1"), linewidth = 1) +
+  # geom_abline(colour = "red") +
+  # guides(colour = "none") +
+  # coord_fixed() +
+  scale_colour_manual(values = c("Heat Index" = "steelblue", "1:1" = "black", "Regression" = "firebrick")) +
+  facet_wrap( ~ name, ncol = 3, scales = "fixed")
+myggsave("plots/weathphase.png", height = 297/3)
+  
 # predict solar max ####
-sol_mod <- lm(SOL_MAX ~ AIR_MAX + AIR_MIN + HUM_MEAN + WIND_MEAN + SOL_MEAN, data = temp)
+sol_mod <- lm(SOL_MAX ~ AIR_MAX + AIR_MIN + HUM_MEAN + WIND_MEAN + SOL_MEAN, data = weathlocal2)
 summary(sol_mod)
-sol_mod <- lm(SOL_MAX ~ 1 + SOL_MEAN, data = temp %>% filter(SOL_MEAN>1))
+sol_mod <- lm(SOL_MAX ~ 1 + SOL_MEAN, data = weathlocal2 %>% filter(SOL_MEAN>1))
 summary(sol_mod)
-sol_mod <- lm(SOL_MAX ~ 0 + SOL_MEAN, data = temp %>% filter(SOL_MEAN>1))
+sol_mod <- lm(SOL_MAX ~ 0 + SOL_MEAN, data = weathlocal2 %>% filter(SOL_MEAN>1))
 summary(sol_mod)
-temp$SOL_MAX2 <- predict(sol_mod, newdata = temp)
-ggplot(temp) +
+weathlocal2$SOL_MAX2 <- predict(sol_mod, newdata = weathlocal2)
+ggplot(weathlocal2) +
   geom_point(aes(x = SOL_MEAN, y = SOL_MAX)) +
   geom_abline(colour = "red") 
-ggplot(temp) +
+ggplot(weathlocal2) +
   labs(x = "Model for SOL_MAX") +
   geom_point(aes(x = SOL_MAX2, y = SOL_MAX)) +
   geom_abline(colour = "red") +
   coord_fixed()
 myggsave("plots/weathsolmaxmodel.png")
-temp1 <- temp %>% 
+temp1 <- weathlocal2 %>% 
   dplyr::select(MEAN = SOL_MEAN, MAX = SOL_MAX, MODEL = SOL_MAX2) %>% 
   mutate(var = "Solar Radiation (MJ/m2/h)")
 
 # predict wind max ####
-wind_mod <- lm(WIND_MAX ~ AIR_MAX + AIR_MIN + HUM_MEAN + WIND_MEAN + SOL_MEAN, data = temp)
+wind_mod <- lm(WIND_MAX ~ AIR_MAX + AIR_MIN + HUM_MEAN + WIND_MEAN + SOL_MEAN, data = weathlocal2)
 summary(wind_mod)
-wind_mod <- lm(WIND_MAX ~ 0 + WIND_MEAN, data = temp)
+wind_mod <- lm(WIND_MAX ~ 0 + WIND_MEAN, data = weathlocal2)
 summary(wind_mod)
-# wind_mod <- lm(WIND_MAX ~ 0 + WIND_MEAN + I(WIND_MEAN^2), data = temp)
+# wind_mod <- lm(WIND_MAX ~ 0 + WIND_MEAN + I(WIND_MEAN^2), data = weathlocal2)
 # summary(wind_mod)
-temp$WIND_MAX2 <- predict(wind_mod, newdata = temp)
-ggplot(temp) +
+weathlocal2$WIND_MAX2 <- predict(wind_mod, newdata = weathlocal2)
+ggplot(weathlocal2) +
   geom_point(aes(x = WIND_MEAN, y = WIND_MAX)) +
   geom_abline(colour = "red") 
-ggplot(temp) +
+ggplot(weathlocal2) +
   labs(x = "Model for WIND_MAX") +
   geom_point(aes(x = WIND_MAX2, y = WIND_MAX)) +
   geom_abline(colour = "red") +
   coord_fixed()
 myggsave("plots/weathwindmaxmodel.png")
-temp2 <- temp %>% 
+temp2 <- weathlocal2 %>% 
   dplyr::select(MEAN = WIND_MEAN, MAX = WIND_MAX, MODEL = WIND_MAX2) %>% 
   mutate(var = "Wind Speed (m/s)")
 
 # predict humidity max ####
-hum_mod <- lm(HUM_MAX ~ AIR_MAX + AIR_MIN + HUM_MEAN + WIND_MEAN + SOL_MEAN, data = temp)
+hum_mod <- lm(HUM_MAX ~ AIR_MAX + AIR_MIN + HUM_MEAN + WIND_MEAN + SOL_MEAN, data = weathlocal2)
 summary(hum_mod)
-hum_mod <- lm(I(100-HUM_MAX) ~ 0 + I(100-HUM_MEAN), data = temp)
+hum_mod <- lm(I(100-HUM_MAX) ~ 0 + I(100-HUM_MEAN), data = weathlocal2)
 summary(hum_mod)
-temp$HUM_MAX2 <- 100-predict(hum_mod, newdata = temp)
-ggplot(temp) +
+weathlocal2$HUM_MAX2 <- 100-predict(hum_mod, newdata = weathlocal2)
+ggplot(weathlocal2) +
   geom_point(aes(x = HUM_MEAN, y = HUM_MAX)) +
   geom_abline(colour = "red") 
-ggplot(temp) +
+ggplot(weathlocal2) +
   labs(x = "Model for HUM_MAX") +
   geom_point(aes(x = HUM_MAX2, y = HUM_MAX)) +
   geom_abline(colour = "red") +
   coord_fixed()
 myggsave("plots/weathhummaxmodel.png")
-temp3 <- temp %>% 
+temp3 <- weathlocal2 %>% 
   dplyr::select(MEAN = HUM_MEAN, MAX = HUM_MAX, MODEL = HUM_MAX2) %>% 
   dplyr::filter(MAX > 0, MODEL > 0) %>% 
   mutate(var = "Relative Humidity (%)")
@@ -261,7 +300,7 @@ bind_rows(temp1, temp2, temp3) %>%
   # slice_sample(prop = 0.1) %>% 
   ggplot() +
   theme_bw() +
-  labs(x = "Daily Mean Value", y = "Peak Hourly Value", colour = "Series") +
+  labs(x = "Daily Mean Value", y = "Maximum Hourly Value", colour = "Series") +
   geom_point(aes(x = MEAN, y = MAX, colour = "Data")) +
   geom_line(aes(x = MEAN, y = MODEL, colour = "Model"), linewidth = 1) +
   # geom_abline(colour = "red") +
@@ -271,5 +310,39 @@ bind_rows(temp1, temp2, temp3) %>%
   facet_wrap( ~ var, ncol = 3, scales = "free")
 myggsave("plots/weathmodelall.png", height = 297/3)
 
+# validate model ####
+temp <- weathlocal2 %>% 
+  # dplyr::filter(AIR_MAX >= 20) %>% 
+  mutate(
+    THI_MOD = (1.8 * AIR_MAX + 32) - 0.55 * (1 - HUM_MAX2 / 100) * (1.8 * AIR_MAX - 26),
+    GHLI_MOD = 61.78 + 4.21 * (AIR_MAX - 22.48) - 1.70 * (WIND_MAX2 - 7.05) + 5.89 * (SOL_MAX2 - 2.41),
+    GHLI2_MOD = 59.67 + 8.87 * (AIR_MAX - 23.5) + 2.78 * (HUM_MAX2 - 58.34) - 3.15 * (WIND_MAX2 - 7.3) + 7.65 * (SOL_MAX2 - 2.14)
+  ) %>%
+  dplyr::select(THI_MAX, GHLI_MAX, GHLI2_MAX, THI_MOD, GHLI_MOD, GHLI2_MOD) %>% 
+  pivot_longer(ends_with("_MAX"), names_to = "Index", values_to = "Data") %>% 
+  pivot_longer(ends_with("_MOD"), names_to = "Dummy", values_to = "Model") %>% 
+  mutate(
+    Index = str_extract(Index, "^[^_]+"),
+    Dummy = str_extract(Dummy, "^[^_]+")
+  ) %>% 
+  dplyr::filter(Index == Dummy) %>% 
+  mutate(
+    Index = factor(Index, levels = c("THI", "GHLI", "GHLI2")),
+    Dummy = NULL,
+    Model = unname(Model)
+    )
+temp %>% 
+  ggplot() +
+  theme_bw() +
+  labs(x = "Model of Daily Maximum Value", y = "Maximum Hourly Value", colour = "Series") +
+  geom_point(aes(x = Model, y = Data, colour = "Data")) +
+  geom_smooth(aes(x = Model, y = Data, colour = "Regression"), method = "lm", se = FALSE) +
+  geom_abline(aes(slope = 1, intercept = 0, colour = "1:1"), linewidth = 1, linetype = 2) +
+  # geom_abline(colour = "red") +
+  # guides(colour = "none") +
+  # coord_fixed() +
+  scale_colour_manual(values = c("Data" = "steelblue", "1:1" = "black", "Regression" = "steelblue4")) +
+  facet_wrap( ~ Index, ncol = 3, scales = "free")
+myggsave("plots/weathvalidmodel.png", height = 297/3)
 
 

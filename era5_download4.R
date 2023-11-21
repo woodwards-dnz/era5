@@ -27,6 +27,8 @@
 # https://cds.climate.copernicus.eu/cdsapp#!/software/app-c3s-daily-era5-statistics?tab=overview
 # query examples
 # https://cds.climate.copernicus.eu/toolbox/doc/how-to/1_how_to_retrieve_data/1_how_to_retrieve_data.html
+# variable details
+# https://confluence.ecmwf.int/pages/viewpage.action?pageId=197702790
 
 library(janitor)
 library(sf)
@@ -79,7 +81,8 @@ area <- round(area / grid[1]) * grid[1] # round to grid
 # set up query ####
 variables <- c("2m_temperature" = "t2m", # Kelvin 
                "2m_dewpoint_temperature" = "d2m", # Kelvin, Rh = 100 - 5(T-Td), Bonshoms et al 2022
-               "surface_solar_radiation_downwards" = "ssrd", # J/m2  
+               "surface_net_solar_radiation" = "ssr", # J/m2 
+               "surface_solar_radiation_downwards" = "ssrd", # J/m2 av over 24 hours
                "10m_u_component_of_wind" = "u10", # m/s
                "10m_v_component_of_wind" = "v10" # m/s
                )
@@ -108,7 +111,7 @@ print(variables)
 print(nitems)
 
 # loop through variables ####
-variables <- variables[1:5] # subsetting
+variables <- variables[3] # subsetting
 for (variable in names(variables)){
   
   suffix <- paste0(island, "_", max(months))
@@ -169,12 +172,13 @@ kelvin_to_celsius <- 273.16
 t2m <- readRDS(paste0("downloaded/t2m_", suffix, ".rds")) - kelvin_to_celsius
 d2m <- readRDS(paste0("downloaded/d2m_", suffix, ".rds")) - kelvin_to_celsius
 rh2m <- 100 - 5 * (t2m - d2m) # Bonshoms et al 2022
+ssr <- readRDS(paste0("downloaded/ssr_", suffix, ".rds")) / 1000000 # J/m2/h to MJ/m2/h
 ssrd <- readRDS(paste0("downloaded/ssrd_", suffix, ".rds")) / 1000000 # J/m2/h to MJ/m2/h
 u10 <- readRDS(paste0("downloaded/u10_", suffix, ".rds"))
 v10 <- readRDS(paste0("downloaded/v10_", suffix, ".rds"))
 w2m <- sqrt(u10 ^ 2 + v10 ^ 2) * 0.75 # https://www.researchgate.net/post/Is-that-possible-to-convert-wind-speed-measured-in-10-m-height-to-a-possible-2-m-height-wind-speed
 
-vars <- c("t2m", "rh2m", "ssrd", "w2m")
+vars <- c("t2m", "rh2m", "ssr", "w2m")
 for (var in vars){
   i <- which(dt == when)
   slice <- get(var)[,,i] # 2022-02-12 18:00

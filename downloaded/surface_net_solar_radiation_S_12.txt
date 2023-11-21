@@ -1,0 +1,27 @@
+File downloaded/surface_net_solar_radiation_S_12.nc (NC_FORMAT_64BIT):
+
+     1 variables (excluding dimension variables):
+        short ssr[longitude,latitude,time]   
+            scale_factor: 467.032498893687
+            add_offset: 15331796.1087506
+            _FillValue: -32767
+            missing_value: -32767
+            units: J m**-2
+            long_name: Surface net short-wave (solar) radiation
+            standard_name: surface_net_downward_shortwave_flux
+
+     3 dimensions:
+        longitude  Size:14 
+            units: degrees_east
+            long_name: longitude
+        latitude  Size:13 
+            units: degrees_north
+            long_name: latitude
+        time  Size:8760 
+            units: hours since 1900-01-01 00:00:00.0
+            long_name: time
+            calendar: gregorian
+
+    2 global attributes:
+        Conventions: CF-1.6
+        history: 2023-11-16 01:08:54 GMT by grib_to_netcdf-2.25.1: /opt/ecmwf/mars-client/bin/grib_to_netcdf.bin -S param -o /cache/data6/adaptor.mars.internal-1700096902.2793295-5511-7-b2ec21f1-fa92-4870-9f37-375ed216abb8.nc /cache/tmp/b2ec21f1-fa92-4870-9f37-375ed216abb8-adaptor.mars.internal-1700095559.4807093-5511-12-tmp.grib
