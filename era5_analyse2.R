@@ -167,7 +167,8 @@ weathlocal <- data %>%
     GHLI = 61.78 + 4.21 * (AIR_C - 22.48) - 1.70 * (WIND_MPS - 7.05) + 5.89 * (SOLAR_MJH - 2.41),
     GHLI2 = 59.67 + 8.87 * (AIR_C - 23.5) + 2.78 * (HUM_PC - 58.34) - 3.15 * (WIND_MPS - 7.3) + 7.65 * (SOLAR_MJH - 2.14)
   ) %>% 
-  # dplyr::filter(HOUR >=12 & HOUR <= 15) %>% 
+  # dplyr::filter(HOUR >= 11 & HOUR <= 16) %>%
+  # dplyr::filter(MONTH == 12 | MONTH <= 4) %>%
   arrange(STATION_ID, DATE_TIME) 
 n_distinct(weathlocal$STATION_ID)
 weathlocal2 <- weathlocal %>% 
@@ -309,6 +310,25 @@ bind_rows(temp1, temp2, temp3) %>%
   scale_colour_manual(values = c("Data" = "steelblue", "Model" = "black")) +
   facet_wrap( ~ var, ncol = 3, scales = "free")
 myggsave("plots/weathmodelall.png", height = 297/3)
+bind_rows(temp1, temp2, temp3) %>% 
+  rename(
+    Data = MAX,
+    Model = MODEL,
+    Var = var
+  ) %>% 
+  group_by(Var) %>% 
+  summarise(
+    mean_value = mean(Data),
+    mean_model = mean(Model),
+    bias = mean(Model - Data),
+    rmse = sqrt(mean((Model - Data)^2)),
+    nse = 1 - sum((Model - Data)^2) / sum((mean(Data) - Data)^2),
+    gain = as.numeric(coef(lm(Data ~ Model))[2]), # slope of regression
+    rsq = summary(lm(Data ~ Model))$adj.r.squared
+  ) %>% 
+  ungroup() %>% 
+  as.data.frame() %>% 
+  print()
 
 # validate model ####
 temp <- weathlocal2 %>% 
@@ -336,6 +356,7 @@ temp %>%
   theme_bw() +
   labs(x = "Model of Daily Maximum Value", y = "Maximum Hourly Value", colour = "Series") +
   geom_point(aes(x = Model, y = Data, colour = "Data")) +
+  geom_blank(aes(y = Model, x = Data, colour = "Data")) +
   geom_smooth(aes(x = Model, y = Data, colour = "Regression"), method = "lm", se = FALSE) +
   geom_abline(aes(slope = 1, intercept = 0, colour = "1:1"), linewidth = 1, linetype = 2) +
   # geom_abline(colour = "red") +
@@ -344,5 +365,18 @@ temp %>%
   scale_colour_manual(values = c("Data" = "steelblue", "1:1" = "black", "Regression" = "steelblue4")) +
   facet_wrap( ~ Index, ncol = 3, scales = "free")
 myggsave("plots/weathvalidmodel.png", height = 297/3)
-
+temp %>% 
+  group_by(Index) %>% 
+  summarise(
+    mean_value = mean(Data),
+    mean_model = mean(Model),
+    bias = mean(Model - Data),
+    rmse = sqrt(mean((Model - Data)^2)),
+    nse = 1 - sum((Model - Data)^2) / sum((mean(Data) - Data)^2),
+    gain = as.numeric(coef(lm(Data ~ Model))[2]), # slope of regression
+    rsq = summary(lm(Data ~ Model))$adj.r.squared
+  ) %>% 
+  ungroup() %>% 
+  as.data.frame() %>% 
+  print()
 
