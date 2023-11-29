@@ -56,6 +56,9 @@ safemin <- function(x){
 safemax <- function(x){
   max(x, na.rm = !all(is.na(x)))
 }
+safesum <- function(x){
+  sum(x, na.rm = !all(is.na(x)))
+}
 safeget <- function(x, i){ # get last element with i == TRUE, i is a boolean vector
   j <- i & !is.na(x)
   ifelse(length(j) == 0, NA_real_, tail(x[j], 1))
@@ -194,6 +197,16 @@ weathlocal2 <- weathlocal %>%
     HUM_MAX = safeget(HUM_PC, HOUR == AIR_HOUR),
     SOL_MAX = safeget(SOLAR_MJH, HOUR == AIR_HOUR),
     WIND_MAX = safeget(WIND_MPS, HOUR == AIR_HOUR),
+    # cumulative
+    THI_HRS = safesum(THI > 72),
+    THI_HRS = ifelse(THI_HRS == 24, NA, THI_HRS),
+    THI_ACC = safesum(pmax(0, THI - 72)),
+    GHLI_HRS = safesum(GHLI > 70),
+    GHLI_HRS = ifelse(GHLI_HRS == 24, NA, GHLI_HRS),
+    GHLI_ACC = safesum(pmax(0, GHLI - 70)),
+    GHLI2_HRS = safesum(GHLI2 > 70),
+    GHLI2_HRS = ifelse(GHLI2_HRS == 24, NA, GHLI2_HRS),
+    GHLI2_ACC = safesum(pmax(0, GHLI2 - 70)),
   ) %>% 
   ungroup() %>% 
   mutate(
@@ -380,3 +393,87 @@ temp %>%
   as.data.frame() %>% 
   print()
 
+# validate hours ####
+temp <- weathlocal2 %>% 
+  # dplyr::filter(AIR_MAX >= 20) %>% 
+  mutate(
+    THI_MOD = (1.8 * AIR_MAX + 32) - 0.55 * (1 - HUM_MAX2 / 100) * (1.8 * AIR_MAX - 26),
+    GHLI_MOD = 61.78 + 4.21 * (AIR_MAX - 22.48) - 1.70 * (WIND_MAX2 - 7.05) + 5.89 * (SOL_MAX2 - 2.41),
+    GHLI2_MOD = 59.67 + 8.87 * (AIR_MAX - 23.5) + 2.78 * (HUM_MAX2 - 58.34) - 3.15 * (WIND_MAX2 - 7.3) + 7.65 * (SOL_MAX2 - 2.14),
+    # THI_MOD = THI_MAX,
+    # GHLI_MOD = GHLI_MAX,
+    # GHLI2_MOD = GHLI2_MAX,
+    THI_MOD = ifelse(THI_MOD > 72, THI_MOD, NA),
+    GHLI_MOD = ifelse(GHLI_MOD > 70, GHLI_MOD, NA),
+    GHLI2_MOD = ifelse(GHLI2_MOD > 70, GHLI2_MOD, NA),
+  ) %>%
+  dplyr::select(THI_HRS, GHLI_HRS, GHLI2_HRS, THI_MOD, GHLI_MOD, GHLI2_MOD) %>% 
+  pivot_longer(ends_with("_HRS"), names_to = "Index", values_to = "Hours") %>% 
+  pivot_longer(ends_with("_MOD"), names_to = "Dummy", values_to = "Model") %>% 
+  mutate(
+    Index = str_extract(Index, "^[^_]+"),
+    Dummy = str_extract(Dummy, "^[^_]+")
+  ) %>% 
+  dplyr::filter(Index == Dummy) %>% 
+  mutate(
+    Index = factor(Index, levels = c("THI", "GHLI", "GHLI2")),
+    Dummy = NULL,
+    Model = unname(Model)
+  )
+temp %>% 
+  ggplot() +
+  theme_bw() +
+  labs(x = "Model of Daily Maximum Value", y = "Hours Above Threshold", colour = "Series") +
+  geom_point(aes(x = Model, y = Hours, colour = "Data")) +
+  # geom_blank(aes(y = Model, x = Hours, colour = "Data")) +
+  geom_smooth(aes(x = Model, y = Hours, colour = "Regression"), method = "lm", se = FALSE) +
+  # geom_abline(aes(slope = 1, intercept = 0, colour = "1:1"), linewidth = 1, linetype = 2) +
+  # geom_abline(colour = "red") +
+  # guides(colour = "none") +
+  # coord_fixed() +
+  scale_y_continuous(limits = c(0,24)) +
+  scale_colour_manual(values = c("Data" = "steelblue", "1:1" = "black", "Regression" = "steelblue4")) +
+  facet_wrap( ~ Index, ncol = 3, scales = "free_x")
+myggsave("plots/weathvalidhours.png", height = 297/3)
+
+# validate accum ####
+temp <- weathlocal2 %>% 
+  # dplyr::filter(AIR_MAX >= 20) %>% 
+  mutate(
+    THI_MOD = (1.8 * AIR_MAX + 32) - 0.55 * (1 - HUM_MAX2 / 100) * (1.8 * AIR_MAX - 26),
+    GHLI_MOD = 61.78 + 4.21 * (AIR_MAX - 22.48) - 1.70 * (WIND_MAX2 - 7.05) + 5.89 * (SOL_MAX2 - 2.41),
+    GHLI2_MOD = 59.67 + 8.87 * (AIR_MAX - 23.5) + 2.78 * (HUM_MAX2 - 58.34) - 3.15 * (WIND_MAX2 - 7.3) + 7.65 * (SOL_MAX2 - 2.14),
+    # THI_MOD = THI_MAX,
+    # GHLI_MOD = GHLI_MAX,
+    # GHLI2_MOD = GHLI2_MAX,
+    THI_MOD = ifelse(THI_MOD > 72, THI_MOD, NA),
+    GHLI_MOD = ifelse(GHLI_MOD > 70, GHLI_MOD, NA),
+    GHLI2_MOD = ifelse(GHLI2_MOD > 70, GHLI2_MOD, NA),
+  ) %>%
+  dplyr::select(THI_ACC, GHLI_ACC, GHLI2_ACC, THI_MOD, GHLI_MOD, GHLI2_MOD) %>% 
+  pivot_longer(ends_with("_ACC"), names_to = "Index", values_to = "Accum") %>% 
+  pivot_longer(ends_with("_MOD"), names_to = "Dummy", values_to = "Model") %>% 
+  mutate(
+    Index = str_extract(Index, "^[^_]+"),
+    Dummy = str_extract(Dummy, "^[^_]+")
+  ) %>% 
+  dplyr::filter(Index == Dummy) %>% 
+  mutate(
+    Index = factor(Index, levels = c("THI", "GHLI", "GHLI2")),
+    Dummy = NULL,
+    Model = unname(Model)
+  )
+temp %>% 
+  ggplot() +
+  theme_bw() +
+  labs(x = "Model of Daily Maximum Value", y = "Accumulation Above Threshold", colour = "Series") +
+  geom_point(aes(x = Model, y = Accum, colour = "Data")) +
+  # geom_blank(aes(y = Model, x = Hours, colour = "Data")) +
+  geom_smooth(aes(x = Model, y = Accum, colour = "Regression"), method = "lm", formula = y ~ x + I(x^2), se = FALSE) +
+  # geom_abline(aes(slope = 1, intercept = 0, colour = "1:1"), linewidth = 1, linetype = 2) +
+  # geom_abline(colour = "red") +
+  # guides(colour = "none") +
+  # coord_fixed() +
+  scale_colour_manual(values = c("Data" = "steelblue", "1:1" = "black", "Regression" = "steelblue4")) +
+  facet_wrap( ~ Index, ncol = 3, scales = "free")
+myggsave("plots/weathvalidaccum.png", height = 297/3)
